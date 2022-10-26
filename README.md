@@ -1,1 +1,254 @@
 # Seguidor-de-linha-2022
+
+int AIN1 = 7; // Esquerdo    // AIN ligado no motor esquerdo -> controla o sentido de rotação do motor
+int AIN2 = 6;               // Segundo pino do motor, um para frente e o outro para trás
+int PWMA = 5;               // PWM define o tempo que o circuito irá receber tensão e o tempo em que não irá receber tensão
+int STBY = 8;               // Alimentação geral do robô
+int BIN1 = 9; //Direito        // BIN ligado no motor direito
+int BIN2 = 10;
+int PWMB = 11;              // Verificar todos os pinos na hora de testar
+int leitura[8];
+double sensor[8];
+double bspeedE = 68;   // Testar no dia da competição
+double bspeedD = 35;
+double VelocR = 0.0;
+double PID = 0.0;
+double setpoint = 4.0;
+double erro = 0.0;
+double P = 0.0;
+double I = 0.0;
+double D = 0.0;
+double kp = 25 ;         // Testar os valores de kp e kd, não utilizar ki
+double ki = 0;        // Começar com kp = 25 e ir aumentando o máximo que der (kp = 50, por exemplo)
+double kd = 6;        // Ao alcançar o valor máximo, deixar kp e kd = 1/2 kp máximo. Ir diminuindo kd se o robo ficar instável
+double pos = 0.0;
+double posin = 0.0;
+double dt = 0.0;
+double de = 0.0;
+double tf = 0.0;
+int i;
+double erroi = 0;
+int leituraBranca = 0;
+int leituraLateral = 0;
+int QuantidadeFitas = 12;     // setar a quantidade de fitas no circuito
+int leituraBrancaCurva = 0;
+int leituraLateralCurva = 0;
+int chave = 0;
+double VelocR1 = 0.0;
+
+
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(3, INPUT); // sensor 7 digitais
+  pinMode(2, INPUT); //sensor 1 digitais
+  pinMode(A1, INPUT); //sensor 5 - meio +1
+  pinMode(A2, INPUT); //sensor 6- meio +2
+  pinMode(A3, INPUT); //sensor 2- meio -2
+  pinMode(A4, INPUT); //sensor 3- meio -1
+  pinMode(A5, INPUT);//sensor 4 - meio
+  pinMode(A6, INPUT); //nao esta sendo utilizado
+  pinMode(A7, INPUT); //nao esta sendo utilizado
+  pinMode(AIN1, OUTPUT);//detectar a linha e mexer os motores.
+  pinMode(AIN2, OUTPUT);
+  pinMode(PWMA, OUTPUT);
+  pinMode(BIN1, OUTPUT);
+  pinMode(BIN2, OUTPUT);
+  pinMode(PWMB, OUTPUT);
+  pinMode(STBY, OUTPUT);//ligar a Ponte H
+
+
+}
+
+
+void sensores()
+{
+  for (i = 2; i < 7 ; i++)
+  {
+    if (sensor[i] < 800)
+    {
+      leitura[i] = 1;
+    }
+    else
+      leitura[i] = 0;
+  }
+}
+
+
+double posicao() //posicao de acordo com os 5 sensores do centro
+{
+  int i;
+  double pos = 0.0, total = 0.0, local, posin = 0.0;
+  for (i = 2; i < 7; i++)
+  {
+    if (leitura[i] == 1)
+    {
+      pos = pos + i;
+      
+      total = total + 1;
+    }
+  }
+  if (total != 0)
+  {
+    local = pos / total;
+    return local;
+  }
+  else if(leitura[2] >0 && leitura[3] > 0 && leitura[4] > 0 && leitura[5] > 0 && leitura[6] > 0)
+  {
+    pos = 4;
+    kp = 0;
+    bspeedE = 0;
+    bspeedE = 0;
+    return pos;
+  }
+  else if(total = 0)
+  {
+    pos = 4;
+    kp = 0;
+    bspeedE = 0;
+    bspeedE = 0;
+    return pos;
+  }
+}
+
+
+
+void lados(char lado, double veloc)//funçao que verifica os lados dos motores
+{
+  if (lado == 'd')
+  {
+    digitalWrite(AIN1, LOW); // Faz o motor andar pra frente
+    digitalWrite(AIN2, HIGH);
+    analogWrite(PWMA, veloc); // Intensidade da velocidade
+  }
+  if (lado == 'e')
+  {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+    analogWrite(PWMB, veloc);
+  }
+}
+
+void mover_motor(double PID)
+{
+  if (PID == 0)
+  {
+    lados('e', IdentificarCurvasE()); // Escolhe a velocidade de acordo com a situação do robô
+    lados('d', IdentificarCurvasD());
+  }
+  else
+  {
+    lados('e', IdentificarCurvasE() - 1.3*PID);//se os moores estiverem em rotaçoes diferentes, mudar a porcentagem de PID que vc manda pra cada motor
+    lados('d', IdentificarCurvasD() +  0.9*PID);
+  }
+}
+
+
+//Retorna uma velocidade conforme o inicio ou fim de uma curva
+
+double IdentificarCurvasE() {
+
+  if (sensor[1] == 0) {
+    leituraBrancaCurva++;
+  }
+  if ((sensor[1] == 1) && (leituraBrancaCurva > 0)) {
+    leituraLateralCurva++;
+    leituraBrancaCurva = 0;
+  }
+  if (leituraLateralCurva % 2 == 0) {
+    VelocR = bspeedE; //nas retas, aumenta-se em  20% a velocidade do robo
+    return VelocR;
+  } else {
+    VelocR = bspeedE; //nas curvas, diminui-se em 50% a velocidade do rob
+    return VelocR;
+  }
+}
+
+double IdentificarCurvasD() {
+
+  if (sensor[1] == 0) {
+    leituraBrancaCurva++;
+  }
+  if ((sensor[1] == 1) && (leituraBrancaCurva > 0)) {
+    leituraLateralCurva++;
+    leituraBrancaCurva = 0;
+  }
+  if (leituraLateralCurva % 2 == 0) {
+    VelocR1 = bspeedD; ;//nas retas, aumenta-se em  20% a velocidade do robo
+    return VelocR1;
+  } else {
+    VelocR1 = bspeedD;//nas curvas, diminui-se em 50% a velocidade do robo
+    return VelocR1;
+  }
+}
+
+
+void pararCircuito()
+{
+  if (sensor[7] == 0) {
+    leituraBranca++;
+  }
+  if ((sensor[7] == 1) && (leituraBranca > 0)) {
+    leituraLateral++;//contabiliza-se a leitura lateral quando ocorre uma leitura branca seguida de uma preta, caracterizando passagem pela fita
+    leituraBranca = 0; //zera-se a leituras das linhas brancas pelos sensores laterais
+  }
+  if (leituraLateral == QuantidadeFitas) {
+    //realizando uma quantidade de leitura igual a quantidade de indicações no circuito, o robo deve parar
+    delay(500);
+    digitalWrite(STBY, LOW);//desliga o funcionamento da ponte H
+  }
+}
+
+
+
+
+void loop() {
+
+  if (millis() > 3000) {
+    digitalWrite(STBY, HIGH);
+    chave = 1;
+  }
+
+  while (chave == 1) {
+
+
+    sensor[0] = 0;
+    sensor[1] = digitalRead(2);
+    sensor[2] = analogRead(A3);
+    sensor[3] = analogRead(A4);
+    sensor[4] = analogRead(A5);
+    sensor[5] = analogRead(A1);
+    sensor[6] = analogRead(A2);
+    sensor[7] = digitalRead(3);
+
+   pararCircuito();
+
+    sensores();
+
+    pos = posicao(); //Definindo a posição do Robô
+
+    posin = pos; //Posição atual do robô  //Cálculo do erro
+
+    erro = setpoint - pos; //Cálculo do erro // Infinitésimo do erro, pequena variação
+
+    de = erro - erroi; // Infinitésimo do erro, pequena variação
+
+    erroi = erro; //erroi recebe o erro atual para fazer o "de" depois
+
+    dt = (millis() - tf) / 1000.0; //Função millis corresponde ao tempo que oprograma ta rodando, dt é o inifitésimo do tempo
+
+    tf = millis(); //Mesmo conceito do erroi
+
+    P = kp * erro; //Controle Proporcional
+
+    I = I + ki * erro * dt; //Controle Integral
+
+    D = kd * (de / dt); //Controle Derivativo
+
+    PID = P + I - D; //PID COMPLETO
+
+    mover_motor(PID); //APLICANDO O PID
+
+  }
+
+}
