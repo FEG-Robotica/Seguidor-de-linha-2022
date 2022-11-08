@@ -10,7 +10,7 @@ int PWMB = 11;              // Verificar todos os pinos na hora de testar
 int leitura[8];
 double sensor[8];
 double bspeedE = 51;   // Testar no dia da competição
-double bspeedD = 35;
+double bspeedD = 32;
 double VelocR = 0.0;
 double PID = 0.0;
 double setpoint = 4.0;
